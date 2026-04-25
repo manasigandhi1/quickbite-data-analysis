@@ -1,0 +1,115 @@
+Create database QuickBite;
+
+# Viewing Tables
+select * from customers; -- customer_id, city
+select * from drivers; -- Driver_id, city, joining date
+select * from orders; -- order_id, customer_id, driver_id, restaurant_id, city, order_date, order_value, delivery_fee, discount, final_amount, status
+select * from restaurants; -- restaurant_id, name, branch, city, commision_%
+
+# This data set was created using chatGPT and was asked to give a data where data modelling is to be mainly focused.
+
+# DATA CLEANING
+# Checking Duplicates
+select order_id, count(*) as count_
+From Orders
+Group by order_id
+having count(*) > 1;
+-- No Duplicates Found for order id
+
+# Checking Duplicates
+select customer_id, count(*) as count_
+From Customers
+Group by customer_id
+having count(*) > 1;
+-- No Duplicates Found for customer id
+
+# Checking Duplicates
+select driver_id, count(*) as count_
+From drivers
+Group by driver_id
+having count(*) > 1;
+-- No Duplicates Found for driver id
+
+# Checking Duplicates
+select restaurant_id, count(*) as count_
+From restaurants
+Group by restaurant_id
+having count(*) > 1;
+-- No Duplicates Found for driver id
+
+# DATA MODELLING
+# Creating Master Data
+Create View Master_data as SELECT 
+    o.Order_ID,
+    o.Customer_ID,
+    CASE
+              WHEN RAND() < 0.7 THEN FLOOR(25 + RAND() * 16)
+              ELSE FLOOR(18 + RAND() * 53)
+          END as age,
+    o.Driver_ID,
+    o.Restaurant_ID,
+    r.Name AS Restaurant_Name,
+    r.Branch AS Restaurant_Branch,
+    o.City,
+    o.Order_Date,
+	CASE 
+                    WHEN RAND() < 0.5 THEN 'Veg'
+                    ELSE 'Non-Veg'
+                END as food_type,
+    o.Order_Value,
+    o.Delivery_Fee,
+    o.Discount,
+    o.Final_Amount,
+    CASE 
+    WHEN RAND() < 0.6 THEN 'UPI'      -- 60%
+    WHEN RAND() < 0.9 THEN 'Cash'     -- 30% (0.6 → 0.9)
+    ELSE 'Card'                       -- 10% (0.9 → 1)
+	END as Payment_mode,
+    c.Segment,
+    d.Rating,
+    r.Category
+FROM Orders o
+LEFT JOIN Customers c ON o.Customer_ID = c.Customer_ID
+LEFT JOIN Drivers d ON o.Driver_ID = d.Driver_ID
+LEFT JOIN Restaurants r ON o.Restaurant_ID = r.Restaurant_ID;
+
+# checking number of rows
+select * from master_data;
+
+# TO check columnwise number of nulls
+SELECT 
+	COUNT(CASE WHEN order_id IS NULL THEN 1 END) AS Order_id_Nulls,
+    COUNT(CASE WHEN customer_id IS NULL THEN 1 END) AS customer_id_Nulls,
+    COUNT(CASE WHEN age IS NULL THEN 1 END) AS age_Nulls,
+    COUNT(CASE WHEN driver_id IS NULL THEN 1 END) AS driver_id_Nulls,
+	COUNT(CASE WHEN restaurant_name IS NULL THEN 1 END) AS Restaurant_Name_Nulls,
+	COUNT(CASE WHEN final_amount IS NULL THEN 1 END) AS Final_amount_Nulls,
+    COUNT(CASE WHEN rating IS NULL THEN 1 END) AS rating_Nulls
+FROM master_data;
+
+# Checking Null entries
+SELECT Order_id
+FROM master_data
+WHERE COALESCE(Order_id, customer_id, age, driver_id, restaurant_id, 
+               restaurant_name, final_amount, rating) IS NULL;
+               
+               
+               
+# Checking duplicate order_ids 
+Select Order_id
+From (
+	select 
+		order_id, 
+		count(order_id) over(partition by order_id order by order_id) as count_ 
+	from master_data) as T 
+where count_ > 1 is null;
+
+# Randomly generating veg/non-veg
+
+UPDATE master_data
+SET food_type = CASE 
+                    WHEN RAND() < 0.5 THEN 'Veg'
+                    ELSE 'Non-Veg'
+                END;
+                
+Select sum(final_amount) from master_data;
